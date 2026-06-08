@@ -5,9 +5,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
-$IExpress = Join-Path $env:WINDIR 'System32\iexpress.exe'
-if (-not (Test-Path $IExpress)) {
-    throw 'iexpress.exe was not found. This build script requires Windows IExpress.'
+$Csc = Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
+if (-not (Test-Path $Csc)) {
+    throw 'The .NET Framework C# compiler was not found.'
 }
 
 $PackageFiles = @(
@@ -31,14 +31,13 @@ $PackageDirs = @(
 
 $BuildRoot = Join-Path $OutputDir 'build'
 $PayloadRoot = Join-Path $BuildRoot 'payload'
-$IExpressRoot = Join-Path $BuildRoot 'iexpress'
-$SedPath = Join-Path $BuildRoot 'ai-warning-installer.sed'
+$PayloadZip = Join-Path $BuildRoot 'payload.zip'
+$SourcePath = Join-Path $BuildRoot 'InstallerBootstrap.cs'
+$ManifestPath = Join-Path $BuildRoot 'app.manifest'
 $OutputExe = Join-Path $OutputDir $InstallerName
-$PayloadZip = Join-Path $IExpressRoot 'payload.zip'
-$Launcher = Join-Path $IExpressRoot 'run-installer.cmd'
 
 Remove-Item -Path $BuildRoot -Recurse -Force -ErrorAction SilentlyContinue
-New-Item -ItemType Directory -Force -Path $PayloadRoot, $IExpressRoot, $OutputDir | Out-Null
+New-Item -ItemType Directory -Force -Path $PayloadRoot, $OutputDir | Out-Null
 
 foreach ($File in $PackageFiles) {
     $Source = Join-Path $PSScriptRoot $File
@@ -56,58 +55,103 @@ foreach ($Dir in $PackageDirs) {
 
 Compress-Archive -Path (Join-Path $PayloadRoot '*') -DestinationPath $PayloadZip -Force
 
-Set-Content -Path $Launcher -Encoding ASCII -Value @'
-@echo off
-setlocal
-set "WORK=%TEMP%\AI-Warning-Policy-Installer-%RANDOM%%RANDOM%"
-mkdir "%WORK%" >nul 2>&1
-powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Expand-Archive -Path '%~dp0payload.zip' -DestinationPath '%WORK%' -Force"
-if errorlevel 1 exit /b %ERRORLEVEL%
-call "%WORK%\install.cmd"
-set "RC=%ERRORLEVEL%"
-exit /b %RC%
+Set-Content -Path $ManifestPath -Encoding UTF8 -Value @'
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v2">
+    <security>
+      <requestedPrivileges xmlns="urn:schemas-microsoft-com:asm.v3">
+        <requestedExecutionLevel level="requireAdministrator" uiAccess="false" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+</assembly>
 '@
 
-$Sed = @"
-[Version]
-Class=IEXPRESS
-SEDVersion=3
+Set-Content -Path $SourcePath -Encoding UTF8 -Value @'
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.IO.Compression;
+using System.Reflection;
 
-[Options]
-PackagePurpose=InstallApp
-ShowInstallProgramWindow=0
-HideExtractAnimation=1
-UseLongFileName=1
-InsideCompressed=1
-CAB_FixedSize=0
-CAB_ResvCodeSigning=0
-RebootMode=N
-InstallPrompt=
-DisplayLicense=
-FinishMessage=AI Warning policy installer completed.
-TargetName=$OutputExe
-FriendlyName=AI Warning Policy Installer
-AppLaunched=run-installer.cmd
-PostInstallCmd=<None>
-AdminQuietInstCmd=run-installer.cmd
-UserQuietInstCmd=run-installer.cmd
-SourceFiles=SourceFiles
+class InstallerBootstrap
+{
+    static int Main(string[] args)
+    {
+        string work = Path.Combine(Path.GetTempPath(), "AI-Warning-Policy-Installer-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            Directory.CreateDirectory(work);
+            string zipPath = Path.Combine(work, "payload.zip");
 
-[Strings]
-InstallProgram=run-installer.cmd
-FILE0=run-installer.cmd
-FILE1=payload.zip
+            using (Stream input = Assembly.GetExecutingAssembly().GetManifestResourceStream("PayloadZip"))
+            {
+                if (input == null)
+                {
+                    Console.Error.WriteLine("Embedded installer payload was not found.");
+                    return 2;
+                }
 
-[SourceFiles]
-SourceFiles0=$IExpressRoot
+                using (FileStream output = File.Create(zipPath))
+                {
+                    input.CopyTo(output);
+                }
+            }
 
-[SourceFiles0]
-%FILE0%=
-%FILE1%=
-"@
+            ZipFile.ExtractToDirectory(zipPath, work);
 
-Set-Content -Path $SedPath -Value $Sed -Encoding ASCII
-& $IExpress /N $SedPath
+            string installCmd = Path.Combine(work, "install.cmd");
+            if (!File.Exists(installCmd))
+            {
+                Console.Error.WriteLine("install.cmd was not found in the embedded payload.");
+                return 3;
+            }
+
+            ProcessStartInfo startInfo = new ProcessStartInfo();
+            startInfo.FileName = "cmd.exe";
+            startInfo.Arguments = "/c \"" + installCmd + "\"";
+            startInfo.WorkingDirectory = work;
+            startInfo.UseShellExecute = false;
+
+            using (Process process = Process.Start(startInfo))
+            {
+                process.WaitForExit();
+                return process.ExitCode;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine(ex.ToString());
+            return 1;
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(work))
+                {
+                    Directory.Delete(work, true);
+                }
+            }
+            catch
+            {
+            }
+        }
+    }
+}
+'@
+
+& $Csc `
+    /nologo `
+    /target:exe `
+    /platform:anycpu `
+    /win32manifest:$ManifestPath `
+    /resource:$PayloadZip,PayloadZip `
+    /reference:System.IO.Compression.dll `
+    /reference:System.IO.Compression.FileSystem.dll `
+    /out:$OutputExe `
+    $SourcePath
 
 if (-not (Test-Path $OutputExe)) {
     throw "Installer was not created at $OutputExe"
