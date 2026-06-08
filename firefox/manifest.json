@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "AI Usage Warning",
+  "version": "1.0.0",
+  "description": "Displays a company warning banner on approved AI websites.",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "ai-warning@example.com"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://claude.ai/*",
+        "https://gemini.google.com/*",
+        "https://www.perplexity.ai/*",
+        "https://perplexity.ai/*"
+      ],
+      "js": ["banner.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

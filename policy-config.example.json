@@ -1,0 +1,9 @@
+{
+  "BannerText": "COMPANY POLICY: DO NOT SHARE CONFIDENTIAL INFORMATION WITH AI TOOLS",
+  "ChromeExtensionId": "replace-with-chrome-web-store-or-self-hosted-extension-id",
+  "ChromeUpdateUrl": "https://clients2.google.com/service/update2/crx",
+  "EdgeExtensionId": "replace-with-edge-addons-or-self-hosted-extension-id",
+  "EdgeUpdateUrl": "https://edge.microsoft.com/extensionwebstorebase/v1/crx",
+  "FirefoxExtensionId": "ai-warning@example.com",
+  "FirefoxInstallUrl": "https://github.com/ORG/REPO/releases/download/v1.0.0/ai-warning-firefox.xpi"
+}

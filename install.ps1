@@ -1,0 +1,133 @@
+param(
+    [string]$ConfigPath = (Join-Path $PSScriptRoot 'policy-config.json')
+)
+
+$ErrorActionPreference = 'Stop'
+$Base = 'C:\ProgramData\AI Warning'
+$Log = Join-Path $Base 'install.log'
+function Log($m) { Add-Content -Path $Log -Value "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" }
+
+function ToHashtable($InputObject) {
+    if ($null -eq $InputObject) { return $null }
+    if ($InputObject -is [System.Collections.IDictionary]) {
+        $hash = @{}
+        foreach ($key in $InputObject.Keys) { $hash[$key] = ToHashtable $InputObject[$key] }
+        return $hash
+    }
+    if ($InputObject -is [System.Collections.IEnumerable] -and $InputObject -isnot [string]) {
+        $items = @()
+        foreach ($item in $InputObject) { $items += ,(ToHashtable $item) }
+        return $items
+    }
+    if ($InputObject.PSObject.Properties.Name.Count -gt 0 -and $InputObject -isnot [string]) {
+        $hash = @{}
+        foreach ($property in $InputObject.PSObject.Properties) { $hash[$property.Name] = ToHashtable $property.Value }
+        return $hash
+    }
+    return $InputObject
+}
+
+function ReadConfig {
+    $default = @{
+        BannerText = 'COMPANY POLICY: DO NOT SHARE CONFIDENTIAL INFORMATION WITH AI TOOLS'
+    }
+
+    if (Test-Path $ConfigPath) {
+        Log "Loading policy config from $ConfigPath"
+        $loaded = ToHashtable (Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json)
+        foreach ($key in $loaded.Keys) { $default[$key] = $loaded[$key] }
+    } else {
+        Log "No policy-config.json found at $ConfigPath; local files copied but browser force-install policies will be skipped"
+    }
+
+    return $default
+}
+
+function SetBrowserForcelistPolicy($PolicyPath, $ExtensionId, $UpdateUrl, $BrowserName) {
+    if ([string]::IsNullOrWhiteSpace($ExtensionId) -or [string]::IsNullOrWhiteSpace($UpdateUrl)) {
+        Log "$BrowserName force-install policy skipped; missing extension ID or update URL"
+        return
+    }
+
+    New-Item -Path $PolicyPath -Force | Out-Null
+    $Value = "$ExtensionId;$UpdateUrl"
+    $Existing = Get-ItemProperty -Path $PolicyPath
+    $PolicyValues = @($Existing.PSObject.Properties | Where-Object { $_.Name -match '^\d+$' })
+    $TargetName = ($PolicyValues | Where-Object { $_.Value -like "$ExtensionId;*" } | Select-Object -First 1).Name
+    if ([string]::IsNullOrWhiteSpace($TargetName)) {
+        $Used = @($PolicyValues | ForEach-Object { [int]$_.Name })
+        $Next = 1
+        while ($Used -contains $Next) { $Next++ }
+        $TargetName = [string]$Next
+    }
+
+    New-ItemProperty -Path $PolicyPath -Name $TargetName -Value $Value -PropertyType String -Force | Out-Null
+    Log "$BrowserName ExtensionInstallForcelist policy value $TargetName written for $ExtensionId"
+}
+
+function SetFirefoxPolicy($ExtensionId, $InstallUrl) {
+    if ([string]::IsNullOrWhiteSpace($ExtensionId) -or [string]::IsNullOrWhiteSpace($InstallUrl)) {
+        Log 'Firefox force-install policy skipped; missing extension ID or install URL'
+        return
+    }
+
+    $FirefoxDist = 'C:\Program Files\Mozilla Firefox\distribution'
+    if (-not (Test-Path 'C:\Program Files\Mozilla Firefox')) {
+        Log 'Firefox not found under Program Files; skipped Firefox policy'
+        return
+    }
+
+    New-Item -ItemType Directory -Force -Path $FirefoxDist | Out-Null
+    $PolicyPath = Join-Path $FirefoxDist 'policies.json'
+    if ((Test-Path $PolicyPath) -and -not (Test-Path (Join-Path $FirefoxDist 'policies.ai-warning.backup.json'))) {
+        Copy-Item -Path $PolicyPath -Destination (Join-Path $FirefoxDist 'policies.ai-warning.backup.json') -Force
+        Log 'Existing Firefox policies.json backed up to policies.ai-warning.backup.json'
+    }
+
+    $Policy = @{ policies = @{} }
+    if (Test-Path $PolicyPath) {
+        $Policy = ToHashtable (Get-Content -Raw -Path $PolicyPath | ConvertFrom-Json)
+        if (-not $Policy.ContainsKey('policies')) { $Policy['policies'] = @{} }
+    }
+    if (-not $Policy['policies'].ContainsKey('ExtensionSettings')) { $Policy['policies']['ExtensionSettings'] = @{} }
+
+    $Policy['policies']['ExtensionSettings'][$ExtensionId] = @{
+        installation_mode = 'force_installed'
+        install_url = $InstallUrl
+    }
+
+    Set-Content -Path $PolicyPath -Value ($Policy | ConvertTo-Json -Depth 20) -Encoding UTF8
+    Log "Firefox ExtensionSettings policy written for $ExtensionId"
+}
+
+try {
+    New-Item -ItemType Directory -Force -Path $Base | Out-Null
+    $Config = ReadConfig
+
+    Log 'Creating extension directories'
+    $ChromeExt = Join-Path $Base 'chrome-edge-extension'
+    $FirefoxExt = Join-Path $Base 'firefox-extension'
+    New-Item -ItemType Directory -Force -Path $ChromeExt, $FirefoxExt | Out-Null
+
+    Log 'Copying extension files'
+    Copy-Item -Path (Join-Path $PSScriptRoot 'extension\*') -Destination $ChromeExt -Recurse -Force
+    Copy-Item -Path (Join-Path $PSScriptRoot 'firefox\*') -Destination $FirefoxExt -Recurse -Force
+
+    Log 'Writing AI Warning audit/reference policy markers'
+    New-Item -Path 'HKLM:\SOFTWARE\Policies\AI Warning' -Force | Out-Null
+    New-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\AI Warning' -Name 'InstallPath' -Value $Base -PropertyType String -Force | Out-Null
+    New-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\AI Warning' -Name 'BannerText' -Value $Config.BannerText -PropertyType String -Force | Out-Null
+
+    Log 'Chrome, Edge, and Firefox enterprise policy deployment'
+    SetBrowserForcelistPolicy 'HKLM:\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist' $Config.ChromeExtensionId $Config.ChromeUpdateUrl 'Chrome'
+    SetBrowserForcelistPolicy 'HKLM:\SOFTWARE\Policies\Microsoft\Edge\ExtensionInstallForcelist' $Config.EdgeExtensionId $Config.EdgeUpdateUrl 'Edge'
+    SetFirefoxPolicy $Config.FirefoxExtensionId $Config.FirefoxInstallUrl
+
+    Log 'Install completed. Browsers must be restarted.'
+    exit 0
+}
+catch {
+    Log "ERROR: $($_.Exception.Message)"
+    Log "STACK: $($_.ScriptStackTrace)"
+    exit 1
+}
