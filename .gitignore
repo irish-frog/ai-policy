@@ -6,7 +6,6 @@ dist/
 !dist/.gitkeep
 !dist/installer/
 dist/installer/*
-!dist/installer/AI-Warning-Policy-Installer.exe
 dist/store-submissions/
 !signed/
 !signed/firefox/
