@@ -26,15 +26,34 @@ Installed package copy:
   C:\ProgramData\AI Warning\source
 
 Browser policy setup:
-  1. Publish or self-host the Chrome/Edge extension so it has a stable extension ID and update URL.
+  1. Build browser submission packages:
+
+     .\package-browser-stores.ps1
+
+     Outputs:
+       dist\store-submissions\ai-warning-chrome-web-store.zip
+       dist\store-submissions\ai-warning-edge-addons.zip
+       dist\store-submissions\ai-warning-firefox-unsigned-source.zip
+
+  2. Publish/sign as unlisted or controlled distribution:
+     - Chrome: upload ai-warning-chrome-web-store.zip to Chrome Web Store as unlisted.
+     - Edge: upload ai-warning-edge-addons.zip to Microsoft Edge Add-ons with controlled visibility.
+     - Firefox: use sign-firefox.ps1 for Mozilla unlisted signing.
+
+  3. Chrome/Edge will provide stable extension IDs after publishing.
      - Chrome Web Store update URL:
        https://clients2.google.com/service/update2/crx
      - Microsoft Edge Add-ons update URL:
        https://edge.microsoft.com/extensionwebstorebase/v1/crx
-  2. Package/sign the Firefox extension as an XPI and host it at a stable HTTPS URL, such as a GitHub Release asset.
-  3. Copy policy-config.example.json to policy-config.json.
-  4. Replace the extension IDs and URLs in policy-config.json.
-  5. Deploy install.cmd as administrator.
+
+  4. Copy policy-config.example.json to policy-config.json.
+  5. Replace the Chrome and Edge extension IDs in policy-config.json.
+  6. Put the signed Firefox XPI at:
+
+     signed\firefox\ai-warning-firefox.xpi
+
+  7. Commit and push policy-config.json if you want GitHub installs to include the IDs, or copy policy-config.json to endpoints separately if you do not want config in the repo.
+  8. Deploy install.cmd, the GitHub one-liner, or the Windows installer as administrator.
 
 Automatic local Firefox attempt:
   If policy-config.json is missing, install.ps1 first looks for a bundled signed XPI:
@@ -68,6 +87,23 @@ Signing Firefox XPI:
   5. Commit and push signed\firefox\ai-warning-firefox.xpi to GitHub.
 
   6. Endpoints can keep using the same one-line GitHub installer. They do not need Mozilla credentials, Node.js, or signing tools.
+
+Chrome and Edge unlisted publishing:
+  1. Run:
+
+     .\package-browser-stores.ps1
+
+  2. Chrome:
+     Upload dist\store-submissions\ai-warning-chrome-web-store.zip to the Chrome Web Store developer dashboard.
+     Choose unlisted visibility if you do not want it searchable.
+     Put the resulting extension ID in policy-config.json as ChromeExtensionId.
+
+  3. Edge:
+     Upload dist\store-submissions\ai-warning-edge-addons.zip to Microsoft Partner Center / Edge Add-ons.
+     Choose controlled/private/unlisted-style visibility where available.
+     Put the resulting extension ID in policy-config.json as EdgeExtensionId.
+
+  4. Re-run the installer. It writes both force-install policies.
 
 Manual local signed-file test:
   After signing, you can also copy the signed XPI directly over:
