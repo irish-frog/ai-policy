@@ -125,34 +125,6 @@ function SetFirefoxPolicy($ExtensionId, $InstallUrl) {
         return
     }
 
-    $FirefoxDist = 'C:\Program Files\Mozilla Firefox\distribution'
-    if (-not (Test-Path 'C:\Program Files\Mozilla Firefox')) {
-        Log 'Firefox not found under Program Files; skipped Firefox policy'
-        return
-    }
-
-    New-Item -ItemType Directory -Force -Path $FirefoxDist | Out-Null
-    $PolicyPath = Join-Path $FirefoxDist 'policies.json'
-    if ((Test-Path $PolicyPath) -and -not (Test-Path (Join-Path $FirefoxDist 'policies.ai-warning.backup.json'))) {
-        Copy-Item -Path $PolicyPath -Destination (Join-Path $FirefoxDist 'policies.ai-warning.backup.json') -Force
-        Log 'Existing Firefox policies.json backed up to policies.ai-warning.backup.json'
-    }
-
-    $Policy = @{ policies = @{} }
-    if (Test-Path $PolicyPath) {
-        $Policy = ToHashtable (Get-Content -Raw -Path $PolicyPath | ConvertFrom-Json)
-        if (-not $Policy.ContainsKey('policies')) { $Policy['policies'] = @{} }
-    }
-    if (-not $Policy['policies'].ContainsKey('ExtensionSettings')) { $Policy['policies']['ExtensionSettings'] = @{} }
-
-    $Policy['policies']['ExtensionSettings'][$ExtensionId] = @{
-        installation_mode = 'force_installed'
-        install_url = $InstallUrl
-    }
-
-    Set-Content -Path $PolicyPath -Value ($Policy | ConvertTo-Json -Depth 20) -Encoding UTF8
-    Log "Firefox ExtensionSettings policy written for $ExtensionId"
-
     $RegistryPolicyPath = 'HKLM:\SOFTWARE\Policies\Mozilla\Firefox'
     New-Item -Path $RegistryPolicyPath -Force | Out-Null
 
@@ -175,6 +147,41 @@ function SetFirefoxPolicy($ExtensionId, $InstallUrl) {
     $RegistryJson = $RegistrySettings | ConvertTo-Json -Depth 20 -Compress
     New-ItemProperty -Path $RegistryPolicyPath -Name 'ExtensionSettings' -Value ([string[]]@($RegistryJson)) -PropertyType MultiString -Force | Out-Null
     Log "Firefox registry ExtensionSettings policy written for $ExtensionId"
+
+    $FirefoxRoots = @(
+        'C:\Program Files\Mozilla Firefox',
+        'C:\Program Files (x86)\Mozilla Firefox'
+    ) | Where-Object { Test-Path (Join-Path $_ 'firefox.exe') }
+
+    if ($FirefoxRoots.Count -eq 0) {
+        Log 'Firefox executable not found under Program Files or Program Files (x86); registry policy was still written'
+        return
+    }
+
+    foreach ($FirefoxRoot in $FirefoxRoots) {
+        $FirefoxDist = Join-Path $FirefoxRoot 'distribution'
+        New-Item -ItemType Directory -Force -Path $FirefoxDist | Out-Null
+        $PolicyPath = Join-Path $FirefoxDist 'policies.json'
+        if ((Test-Path $PolicyPath) -and -not (Test-Path (Join-Path $FirefoxDist 'policies.ai-warning.backup.json'))) {
+            Copy-Item -Path $PolicyPath -Destination (Join-Path $FirefoxDist 'policies.ai-warning.backup.json') -Force
+            Log "Existing Firefox policies.json backed up under $FirefoxDist"
+        }
+
+        $Policy = @{ policies = @{} }
+        if (Test-Path $PolicyPath) {
+            $Policy = ToHashtable (Get-Content -Raw -Path $PolicyPath | ConvertFrom-Json)
+            if (-not $Policy.ContainsKey('policies')) { $Policy['policies'] = @{} }
+        }
+        if (-not $Policy['policies'].ContainsKey('ExtensionSettings')) { $Policy['policies']['ExtensionSettings'] = @{} }
+
+        $Policy['policies']['ExtensionSettings'][$ExtensionId] = @{
+            installation_mode = 'force_installed'
+            install_url = $InstallUrl
+        }
+
+        Set-Content -Path $PolicyPath -Value ($Policy | ConvertTo-Json -Depth 20) -Encoding UTF8
+        Log "Firefox policies.json ExtensionSettings policy written for $ExtensionId at $PolicyPath"
+    }
 }
 
 try {
