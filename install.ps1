@@ -30,6 +30,8 @@ function ToHashtable($InputObject) {
 function ReadConfig {
     $default = @{
         BannerText = 'COMPANY POLICY: DO NOT SHARE CONFIDENTIAL INFORMATION WITH AI TOOLS'
+        EdgeExtensionId = 'gghjldfblicajaepdoijgiijknkmoakn'
+        EdgeUpdateUrl = 'https://it-inyanga.co.za/ai-warning/update.xml'
     }
 
     if (Test-Path $ConfigPath) {
