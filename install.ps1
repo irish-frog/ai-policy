@@ -66,6 +66,33 @@ function NewLocalFirefoxXpi($ExtensionPath, $OutputPath) {
     return $OutputPath
 }
 
+function CopyBundledFirefoxXpi($OutputPath) {
+    $Candidates = @(
+        (Join-Path $PSScriptRoot 'signed\firefox\ai-warning-firefox.xpi'),
+        (Join-Path $PSScriptRoot 'dist\firefox\ai-warning-firefox.xpi')
+    )
+
+    foreach ($Candidate in $Candidates) {
+        if (Test-Path $Candidate) {
+            Copy-Item -Path $Candidate -Destination $OutputPath -Force
+            Log "Bundled signed Firefox XPI copied from $Candidate to $OutputPath"
+            return $OutputPath
+        }
+    }
+
+    $LatestDistXpi = Get-ChildItem -Path (Join-Path $PSScriptRoot 'dist\firefox') -Filter '*.xpi' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if ($LatestDistXpi) {
+        Copy-Item -Path $LatestDistXpi.FullName -Destination $OutputPath -Force
+        Log "Bundled signed Firefox XPI copied from $($LatestDistXpi.FullName) to $OutputPath"
+        return $OutputPath
+    }
+
+    return $null
+}
+
 function ConvertPathToFileUrl($Path) {
     return ([System.Uri]$Path).AbsoluteUri
 }
@@ -148,11 +175,14 @@ try {
     }
 
     if ([string]::IsNullOrWhiteSpace($Config.FirefoxInstallUrl)) {
-        $LocalFirefoxXpi = NewLocalFirefoxXpi $FirefoxExt (Join-Path $Base 'ai-warning-firefox.xpi')
+        $LocalFirefoxXpi = CopyBundledFirefoxXpi (Join-Path $Base 'ai-warning-firefox.xpi')
+        if ([string]::IsNullOrWhiteSpace($LocalFirefoxXpi)) {
+            $LocalFirefoxXpi = NewLocalFirefoxXpi $FirefoxExt (Join-Path $Base 'ai-warning-firefox.xpi')
+            Log 'Normal Firefox releases require this generated XPI to be signed before permanent policy install succeeds'
+        }
         if (-not [string]::IsNullOrWhiteSpace($LocalFirefoxXpi)) {
             $Config.FirefoxInstallUrl = ConvertPathToFileUrl $LocalFirefoxXpi
             Log "Firefox install URL defaulted to local XPI: $($Config.FirefoxInstallUrl)"
-            Log 'Normal Firefox releases require this XPI to be signed before permanent policy install succeeds'
         }
     }
 

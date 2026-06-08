@@ -3,6 +3,15 @@ AI Warning Banner - Policy Deployment Package
 Install silently in N-central/SolarWinds:
   install.cmd
 
+Build a Windows installer EXE:
+  .\build-installer.ps1
+
+Installer output:
+  dist\installer\AI-Warning-Policy-Installer.exe
+
+Run installer silently as administrator:
+  AI-Warning-Policy-Installer.exe /Q
+
 Uninstall silently:
   uninstall.cmd
 
@@ -28,11 +37,17 @@ Browser policy setup:
   5. Deploy install.cmd as administrator.
 
 Automatic local Firefox attempt:
-  If policy-config.json is missing, install.ps1 now builds:
+  If policy-config.json is missing, install.ps1 first looks for a bundled signed XPI:
+    signed\firefox\ai-warning-firefox.xpi
+
+  If that file exists, it copies it to:
+    C:\ProgramData\AI Warning\ai-warning-firefox.xpi
+
+  If no bundled signed XPI exists, install.ps1 builds an unsigned fallback:
     C:\ProgramData\AI Warning\ai-warning-firefox.xpi
 
   It then writes Firefox ExtensionSettings using the extension ID from firefox\manifest.json and a local file:/// install URL.
-  This gives you the automatic policy path immediately, but normal Firefox releases still require the XPI to be signed before it will permanently install.
+  Normal Firefox releases require the XPI to be signed before it will permanently install.
 
 Signing Firefox XPI:
   1. Create a Mozilla Add-ons API key:
@@ -46,11 +61,20 @@ Signing Firefox XPI:
 
      .\sign-firefox.ps1
 
-  4. Upload the signed .xpi from dist\firefox to a GitHub Release, or copy it over:
+  4. Copy the signed .xpi from dist\firefox to:
+
+     signed\firefox\ai-warning-firefox.xpi
+
+  5. Commit and push signed\firefox\ai-warning-firefox.xpi to GitHub.
+
+  6. Endpoints can keep using the same one-line GitHub installer. They do not need Mozilla credentials, Node.js, or signing tools.
+
+Manual local signed-file test:
+  After signing, you can also copy the signed XPI directly over:
 
      C:\ProgramData\AI Warning\ai-warning-firefox.xpi
 
-  5. Restart Firefox.
+  Then restart Firefox.
 
 Chrome without Chrome installed:
   The installer can still write Chrome policy to:
