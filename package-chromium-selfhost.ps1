@@ -43,26 +43,36 @@ $PrivateKeyFullPath = [System.IO.Path]::GetFullPath($PrivateKeyPath)
 $OutputCrx = Join-Path (Split-Path -Parent $ExtensionFullPath) ((Split-Path -Leaf $ExtensionFullPath) + '.crx')
 $OutputPem = Join-Path (Split-Path -Parent $ExtensionFullPath) ((Split-Path -Leaf $ExtensionFullPath) + '.pem')
 
-$PackArgs = @("--pack-extension=$ExtensionFullPath")
+$TempProfile = Join-Path $env:TEMP ('AI-Warning-Chromium-Pack-' + [guid]::NewGuid().ToString('N'))
+$PackArgs = @(
+    "--user-data-dir=$TempProfile",
+    "--pack-extension=$ExtensionFullPath"
+)
 if (Test-Path $PrivateKeyFullPath) {
     $PackArgs += "--pack-extension-key=$PrivateKeyFullPath"
 }
+
+Remove-Item -Path $OutputCrx -Force -ErrorAction SilentlyContinue
+Remove-Item -Path $OutputPem -Force -ErrorAction SilentlyContinue
 
 Write-Host "Packing extension with:"
 Write-Host "  $BrowserExe"
 Write-Host ''
 
 & $BrowserExe $PackArgs
-if ($LASTEXITCODE -ne 0) {
-    throw "Browser pack command failed with exit code $LASTEXITCODE"
-}
 
 $FinalCrx = Join-Path $OutputDir 'ai-warning.crx'
 $FinalPem = Join-Path $OutputDir 'ai-warning.pem'
 
+for ($i = 0; $i -lt 20 -and -not (Test-Path $OutputCrx); $i++) {
+    Start-Sleep -Milliseconds 250
+}
+
 if (-not (Test-Path $OutputCrx)) {
     throw "Expected CRX was not created at $OutputCrx"
 }
+
+Remove-Item -Path $TempProfile -Recurse -Force -ErrorAction SilentlyContinue
 
 Move-Item -Path $OutputCrx -Destination $FinalCrx -Force
 

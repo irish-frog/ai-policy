@@ -10,6 +10,7 @@ dist/
 !dist/installer/
 dist/installer/*
 dist/store-submissions/
+dist/self-hosted/
 !signed/
 !signed/firefox/
 !signed/firefox/.gitkeep
