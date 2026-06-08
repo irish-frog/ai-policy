@@ -1,6 +1,7 @@
 logs/
 *.log
 policy-config.json
+.tools/
 dist/
 !dist/
 !dist/.gitkeep
