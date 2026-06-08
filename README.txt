@@ -105,6 +105,44 @@ Chrome and Edge unlisted publishing:
 
   4. Re-run the installer. It writes both force-install policies.
 
+Chrome and Edge self-hosted CRX:
+  1. Build a self-signed CRX:
+
+     .\package-chromium-selfhost.ps1
+
+  2. Keep the generated private key safe:
+
+     keys\ai-warning-chromium.pem
+
+     Reuse the same key for every future version. If this key changes, the extension ID changes.
+
+  3. Install or load the CRX once on a test browser and copy the extension ID from:
+
+     edge://extensions
+     chrome://extensions
+
+  4. Host the CRX on HTTPS, for example:
+
+     https://yourdomain.com/ai-warning/ai-warning.crx
+
+  5. Generate update.xml:
+
+     .\package-chromium-selfhost.ps1 -ExtensionId "your-extension-id" -CrxUrl "https://yourdomain.com/ai-warning/ai-warning.crx"
+
+  6. Host these files on your website:
+
+     dist\self-hosted\chromium\ai-warning.crx
+     dist\self-hosted\chromium\update.xml
+
+  7. Configure policy-config.json:
+
+     ChromeExtensionId = your extension ID
+     ChromeUpdateUrl = https://yourdomain.com/ai-warning/update.xml
+     EdgeExtensionId = your extension ID
+     EdgeUpdateUrl = https://yourdomain.com/ai-warning/update.xml
+
+  Note: the .crx file should be served as application/x-chrome-extension.
+
 Manual local signed-file test:
   After signing, you can also copy the signed XPI directly over:
 
