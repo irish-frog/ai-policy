@@ -57,6 +57,26 @@ function RemoveFirefoxPolicy($ExtensionId) {
         Set-Content -Path $FirefoxPolicy -Value ($Policy | ConvertTo-Json -Depth 20) -Encoding UTF8
         Log "Removed Firefox ExtensionSettings entry for $ExtensionId"
     }
+
+    $RegistryPolicyPath = 'HKLM:\SOFTWARE\Policies\Mozilla\Firefox'
+    $ExistingRegistrySettings = (Get-ItemProperty -Path $RegistryPolicyPath -Name 'ExtensionSettings' -ErrorAction SilentlyContinue).ExtensionSettings
+    if (-not [string]::IsNullOrWhiteSpace($ExistingRegistrySettings)) {
+        try {
+            $RegistrySettings = ToHashtable ($ExistingRegistrySettings -join "`n" | ConvertFrom-Json)
+            if ($RegistrySettings.ContainsKey($ExtensionId)) {
+                $RegistrySettings.Remove($ExtensionId)
+                if ($RegistrySettings.Count -gt 0) {
+                    $RegistryJson = $RegistrySettings | ConvertTo-Json -Depth 20 -Compress
+                    New-ItemProperty -Path $RegistryPolicyPath -Name 'ExtensionSettings' -Value ([string[]]@($RegistryJson)) -PropertyType MultiString -Force | Out-Null
+                } else {
+                    Remove-ItemProperty -Path $RegistryPolicyPath -Name 'ExtensionSettings' -Force -ErrorAction SilentlyContinue
+                }
+                Log "Removed Firefox registry ExtensionSettings entry for $ExtensionId"
+            }
+        } catch {
+            Log 'Existing Firefox registry ExtensionSettings could not be parsed during uninstall; left unchanged'
+        }
+    }
 }
 
 Log 'Removing AI Warning files and policy markers'

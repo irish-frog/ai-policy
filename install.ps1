@@ -152,6 +152,29 @@ function SetFirefoxPolicy($ExtensionId, $InstallUrl) {
 
     Set-Content -Path $PolicyPath -Value ($Policy | ConvertTo-Json -Depth 20) -Encoding UTF8
     Log "Firefox ExtensionSettings policy written for $ExtensionId"
+
+    $RegistryPolicyPath = 'HKLM:\SOFTWARE\Policies\Mozilla\Firefox'
+    New-Item -Path $RegistryPolicyPath -Force | Out-Null
+
+    $RegistrySettings = @{}
+    $ExistingRegistrySettings = (Get-ItemProperty -Path $RegistryPolicyPath -Name 'ExtensionSettings' -ErrorAction SilentlyContinue).ExtensionSettings
+    if (-not [string]::IsNullOrWhiteSpace($ExistingRegistrySettings)) {
+        try {
+            $RegistrySettings = ToHashtable ($ExistingRegistrySettings -join "`n" | ConvertFrom-Json)
+        } catch {
+            Log 'Existing Firefox registry ExtensionSettings could not be parsed; replacing with AI Warning policy'
+            $RegistrySettings = @{}
+        }
+    }
+
+    $RegistrySettings[$ExtensionId] = @{
+        installation_mode = 'force_installed'
+        install_url = $InstallUrl
+    }
+
+    $RegistryJson = $RegistrySettings | ConvertTo-Json -Depth 20 -Compress
+    New-ItemProperty -Path $RegistryPolicyPath -Name 'ExtensionSettings' -Value ([string[]]@($RegistryJson)) -PropertyType MultiString -Force | Out-Null
+    Log "Firefox registry ExtensionSettings policy written for $ExtensionId"
 }
 
 try {
