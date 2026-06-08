@@ -57,8 +57,11 @@ function NewLocalFirefoxXpi($ExtensionPath, $OutputPath) {
         return $null
     }
 
+    $TempZip = [System.IO.Path]::ChangeExtension($OutputPath, '.zip')
+    Remove-Item -Path $TempZip -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $OutputPath -Force -ErrorAction SilentlyContinue
-    Compress-Archive -Path (Join-Path $ExtensionPath '*') -DestinationPath $OutputPath -Force
+    Compress-Archive -Path (Join-Path $ExtensionPath '*') -DestinationPath $TempZip -Force
+    Move-Item -Path $TempZip -Destination $OutputPath -Force
     Log "Local Firefox XPI created at $OutputPath"
     return $OutputPath
 }
