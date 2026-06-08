@@ -34,6 +34,24 @@ Automatic local Firefox attempt:
   It then writes Firefox ExtensionSettings using the extension ID from firefox\manifest.json and a local file:/// install URL.
   This gives you the automatic policy path immediately, but normal Firefox releases still require the XPI to be signed before it will permanently install.
 
+Signing Firefox XPI:
+  1. Create a Mozilla Add-ons API key:
+     https://addons.mozilla.org/developers/addon/api/key/
+  2. In elevated PowerShell, set the signing credentials:
+
+     $env:AMO_JWT_ISSUER = "your-api-key"
+     $env:AMO_JWT_SECRET = "your-api-secret"
+
+  3. Run:
+
+     .\sign-firefox.ps1
+
+  4. Upload the signed .xpi from dist\firefox to a GitHub Release, or copy it over:
+
+     C:\ProgramData\AI Warning\ai-warning-firefox.xpi
+
+  5. Restart Firefox.
+
 Chrome without Chrome installed:
   The installer can still write Chrome policy to:
     HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist
