@@ -8,7 +8,7 @@ echo AI Warning install started: %date% %time% >> "%LOG%"
 echo Running as: %USERNAME% >> "%LOG%"
 echo Script path: %~dp0 >> "%LOG%"
 
-powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0install.ps1" >> "%LOG%" 2>&1
+powershell.exe -NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%~dp0install.ps1"
 set "RC=%ERRORLEVEL%"
 echo Install finished with exit code %RC%: %date% %time% >> "%LOG%"
 exit /b %RC%
