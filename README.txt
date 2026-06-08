@@ -27,6 +27,19 @@ Browser policy setup:
   4. Replace the extension IDs and URLs in policy-config.json.
   5. Deploy install.cmd as administrator.
 
+Automatic local Firefox attempt:
+  If policy-config.json is missing, install.ps1 now builds:
+    C:\ProgramData\AI Warning\ai-warning-firefox.xpi
+
+  It then writes Firefox ExtensionSettings using the extension ID from firefox\manifest.json and a local file:/// install URL.
+  This gives you the automatic policy path immediately, but normal Firefox releases still require the XPI to be signed before it will permanently install.
+
+Chrome without Chrome installed:
+  The installer can still write Chrome policy to:
+    HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist
+
+  Chrome will read that policy later when installed, but it still needs a real Chrome extension ID and update URL in policy-config.json.
+
 What install.cmd writes:
   - Chrome:
     HKLM\SOFTWARE\Policies\Google\Chrome\ExtensionInstallForcelist

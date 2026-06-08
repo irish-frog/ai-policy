@@ -37,10 +37,34 @@ function ReadConfig {
         $loaded = ToHashtable (Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json)
         foreach ($key in $loaded.Keys) { $default[$key] = $loaded[$key] }
     } else {
-        Log "No policy-config.json found at $ConfigPath; local files copied but browser force-install policies will be skipped"
+        Log "No policy-config.json found at $ConfigPath; browser force-install policies will use available local defaults"
     }
 
     return $default
+}
+
+function GetFirefoxExtensionId($ExtensionPath) {
+    $ManifestPath = Join-Path $ExtensionPath 'manifest.json'
+    if (-not (Test-Path $ManifestPath)) { return $null }
+
+    $Manifest = Get-Content -Raw -Path $ManifestPath | ConvertFrom-Json
+    return $Manifest.browser_specific_settings.gecko.id
+}
+
+function NewLocalFirefoxXpi($ExtensionPath, $OutputPath) {
+    if (-not (Test-Path (Join-Path $ExtensionPath 'manifest.json'))) {
+        Log 'Firefox XPI build skipped; manifest.json not found'
+        return $null
+    }
+
+    Remove-Item -Path $OutputPath -Force -ErrorAction SilentlyContinue
+    Compress-Archive -Path (Join-Path $ExtensionPath '*') -DestinationPath $OutputPath -Force
+    Log "Local Firefox XPI created at $OutputPath"
+    return $OutputPath
+}
+
+function ConvertPathToFileUrl($Path) {
+    return ([System.Uri]$Path).AbsoluteUri
 }
 
 function SetBrowserForcelistPolicy($PolicyPath, $ExtensionId, $UpdateUrl, $BrowserName) {
@@ -112,6 +136,22 @@ try {
     Log 'Copying extension files'
     Copy-Item -Path (Join-Path $PSScriptRoot 'extension\*') -Destination $ChromeExt -Recurse -Force
     Copy-Item -Path (Join-Path $PSScriptRoot 'firefox\*') -Destination $FirefoxExt -Recurse -Force
+
+    if ([string]::IsNullOrWhiteSpace($Config.FirefoxExtensionId)) {
+        $Config.FirefoxExtensionId = GetFirefoxExtensionId $FirefoxExt
+        if (-not [string]::IsNullOrWhiteSpace($Config.FirefoxExtensionId)) {
+            Log "Firefox extension ID discovered from manifest: $($Config.FirefoxExtensionId)"
+        }
+    }
+
+    if ([string]::IsNullOrWhiteSpace($Config.FirefoxInstallUrl)) {
+        $LocalFirefoxXpi = NewLocalFirefoxXpi $FirefoxExt (Join-Path $Base 'ai-warning-firefox.xpi')
+        if (-not [string]::IsNullOrWhiteSpace($LocalFirefoxXpi)) {
+            $Config.FirefoxInstallUrl = ConvertPathToFileUrl $LocalFirefoxXpi
+            Log "Firefox install URL defaulted to local XPI: $($Config.FirefoxInstallUrl)"
+            Log 'Normal Firefox releases require this XPI to be signed before permanent policy install succeeds'
+        }
+    }
 
     Log 'Writing AI Warning audit/reference policy markers'
     New-Item -Path 'HKLM:\SOFTWARE\Policies\AI Warning' -Force | Out-Null
