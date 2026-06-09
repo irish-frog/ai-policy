@@ -24,11 +24,18 @@ function ToHashtable($InputObject) {
 }
 
 function ReadConfig {
+    $default = @{
+        ChromeExtensionId = 'gghjldfblicajaepdoijgiijknkmoakn'
+        EdgeExtensionId = 'gghjldfblicajaepdoijgiijknkmoakn'
+        FirefoxExtensionId = 'ai-warning@example.com'
+    }
+
     $ConfigPath = Join-Path $PSScriptRoot 'policy-config.json'
     if (Test-Path $ConfigPath) {
-        return ToHashtable (Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json)
+        $loaded = ToHashtable (Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json)
+        foreach ($key in $loaded.Keys) { $default[$key] = $loaded[$key] }
     }
-    return @{}
+    return $default
 }
 
 function RemoveBrowserForcelistPolicy($PolicyPath, $ExtensionId, $BrowserName) {

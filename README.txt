@@ -26,11 +26,11 @@ Installed package copy:
   C:\ProgramData\AI Warning\source
 
 Browser policy setup:
-  Edge default:
-    The installer includes the it-inyanga self-hosted Edge policy by default:
+  Chrome and Edge default:
+    The installer includes the it-inyanga self-hosted Chrome/Edge policy by default:
       gghjldfblicajaepdoijgiijknkmoakn;https://it-inyanga.co.za/ai-warning/update.xml
 
-    This means Edge can be installed without policy-config.json.
+    This means Chrome and Edge can be installed without policy-config.json.
 
   1. Build browser submission packages:
 
