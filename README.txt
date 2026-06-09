@@ -1,46 +1,34 @@
-AI Warning Banner
+# AI Warning Banner
 
-This deploys a browser extension that shows a warning banner on approved AI websites.
+This package deploys a browser extension that displays a warning banner on approved AI websites.
 
-The banner reminds users not to share confidential company information with AI tools.
+The banner reminds users not to enter confidential, sensitive, or company information into AI services.
 
-Current Setup
+## Installation
 
-Chrome and Edge:
-  Uses the hosted extension update at:
-  https://it-inyanga.co.za/ai-warning/update.xml
+1. Close all supported browsers:
 
-Firefox:
-  Uses the original local Firefox package method.
+```cmd
+taskkill /F /IM chrome.exe /IM msedge.exe /IM firefox.exe
+```
 
-Install from GitHub
+2. Run the following command from an Administrator Command Prompt:
 
-Run this from an Administrator Command Prompt:
+```cmd
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "iwr -Uri 'https://raw.githubusercontent.com/irish-frog/ai-policy/main/install-from-github.ps1' -OutFile '%TEMP%\install-from-github.ps1'; & '%TEMP%\install-from-github.ps1' -Repository 'irish-frog/ai-policy' -Branch 'main'"
+```
 
-  powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "iwr -Uri 'https://raw.githubusercontent.com/irish-frog/ai-policy/main/install-from-github.ps1' -OutFile '%TEMP%\install-from-github.ps1'; & '%TEMP%\install-from-github.ps1' -Repository 'irish-frog/ai-policy' -Branch 'main'"
+## Uninstallation
 
-Install from Local Folder
+Run the following command from an Administrator Command Prompt:
 
-Run this from an Administrator Command Prompt:
+```cmd
+cd /d "C:\ProgramData\AI Warning"
+uninstall.cmd
+```
 
-  cd /d "C:\Users\gavin\Downloads\AI-Warning-Debug-Package\AI-Warning-Debug-Package"
-  install.cmd
+## After Installation
 
-Uninstall
+Reopen Chrome, Microsoft Edge, and Firefox.
 
-Run this from an Administrator Command Prompt:
-
-  cd /d "C:\Users\gavin\Downloads\AI-Warning-Debug-Package\AI-Warning-Debug-Package"
-  uninstall.cmd
-
-After Install
-
-Fully close and reopen Chrome, Edge, and Firefox.
-
-Logs
-
-Install log:
-  C:\ProgramData\AI Warning\install.log
-
-Uninstall log:
-  C:\ProgramData\AI Warning\uninstall.log
+The warning banner will automatically appear when users visit approved AI websites.
