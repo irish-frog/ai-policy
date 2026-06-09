@@ -1,8 +1,10 @@
 {
   "manifest_version": 3,
-  "name": "AI Usage Warning",
+  "name": "AI Warning Banner",
   "version": "1.0.0",
-  "description": "Displays a company warning banner on approved AI websites.",
+  "description": "Displays a warning banner on pages where AI tools may be used.",
+  "permissions": [],
+  "host_permissions": [],
   "browser_specific_settings": {
     "gecko": {
       "id": "ai-warning@example.com"
@@ -17,8 +19,14 @@
         "https://www.perplexity.ai/*",
         "https://perplexity.ai/*"
       ],
-      "js": ["banner.js"],
+      "js": ["content.js"],
       "run_at": "document_idle"
     }
-  ]
+  ],
+  "action": {
+    "default_title": "AI Warning Banner"
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self';"
+  }
 }
